@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Video Stream</title>
+    <script src="/wfs.js"></script>
+    <style>
+        #controls {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+<h1>WFS version</h1>
+<video id="videoPlayer" width="640" height="480"></video>
+
+<div id="controls">
+    <button id="toggleStream">Start Stream</button>
+</div>
+
+<script>
+    function getWebSocketURL() {
+        let protocol = (window.location.protocol === 'https:') ? 'wss:' : 'ws:';
+        let host = window.location.hostname;
+        let port = window.location.port;
+
+        return `${protocol}//${host}:${port}/ws`;
+    }
+
+    const videoElement = document.getElementById('videoPlayer');
+    const toggleButton = document.getElementById('toggleStream');
+    const wsURL = 'ws://localhost:8080/ws';
+
+    let streaming = false;
+    let ws = null;
+    const wfs = new Wfs();
+
+    function startStream() {
+        if (ws) {
+            ws.close();
+        }
+        ws = new WebSocket(getWebSocketURL());
+        ws.binaryType = 'arraybuffer'; // Make sure we're receiving binary frames
+
+        ws.onopen = function() {
+            console.log("Connected to WebSocket server");
+            ws.send('stream');
+        };
+
+        ws.onmessage = function(evt) {
+            let data = new Uint8Array(evt.data);
+            var copy = new Uint8Array(data);
+            wfs.trigger('wfsH264DataParsing', {data: copy });
+        };
+
+        wfs.attachMedia(videoElement. websocketName=undefined);
+
+        videoElement.addEventListener('loadedmetadata', function() {
+            if (videoElement.paused) {
+                videoElement.play();
+            }
+        });
+    }
+
+    function stopStream() {
+        if (ws) {
+            ws.send('stop');
+            ws.close();
+            ws = null;
+        }
+        videoElement.pause();
+    }
+
+    toggleButton.addEventListener('click', () => {
+        streaming = !streaming;
+        if (streaming) {
+            startStream();
+            toggleButton.innerText = 'Stop Stream';
+        } else {
+            stopStream();
+            toggleButton.innerText = 'Start Stream';
+        }
+    });
+</script>
+</body>
+
+</html>

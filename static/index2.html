@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Streaming with Broadway.js</title>
+<!--    <script src="/static/Decoder.js"></script>-->
+<!--    <script src="/static/Player.js"></script>-->
+<!--    <script src="https://cdnjs.cloudflare.com/ajax/libs/Broadway/0.1.0/WebGLCanvas.min.js" integrity="sha512-ILxyS3NHywuEnSRSx8Ul6Wrk0ISWXZGAULLhOmR6P2mt51EviEi2BiSP2nDoEy6cTbpMv9vGoN1y8quqHBYFog==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>-->
+<!--    <script src="https://cdnjs.cloudflare.com/ajax/libs/Broadway/0.1.0/stream.js" integrity="sha512-oZ/7Y4awKj9bFQQno7rs8bGvjRvrR02ZdryyQCfeYhAxSZ0TwjmwlZ6fm0QSeXYJ7V+69AvJUv21dOoy2w0cWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>-->
+<!--    <script src="https://cdnjs.cloudflare.com/ajax/libs/Broadway/0.1.0/mp4.js" integrity="sha512-sCN3/IMqub8ytWqCL7VKc6rbctZlgejYs/AADZIcibAWZwmlMFfCN9D8OT3xvdxmUwohw7NPeafkp9qMX9vM7Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>-->
+    <script type="text/javascript" src="/Decoder.js"></script>
+    <script type="text/javascript" src="/YUVCanvas.js"></script>
+    <script type="text/javascript" src="/Player.js"></script>
+
+    <script type="text/javascript" src="/stream.js"></script>
+
+    <script type="text/javascript" src="/mp4.js"></script>
+    <style>
+        canvas {
+            width: 640px;
+            height: 480px;
+            background-color: #000;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Broadway Version</h1>
+<div id="canvas"></div>
+<button onclick="toggleStream()">Start Stream</button>
+<script>
+    function getWebSocketURL() {
+        let protocol = (window.location.protocol === 'https:') ? 'wss:' : 'ws:';
+        let host = window.location.hostname;
+        let port = window.location.port;
+
+        return `${protocol}//${host}:${port}/ws`;
+    }
+
+    let ws;
+    let streaming = false;
+    let player;
+
+    function toggleStream() {
+        if (streaming) {
+            ws.send('stop');
+            streaming = false;
+            document.querySelector('button').textContent = 'Start Stream';
+        } else {
+            ws.send('stream');
+            streaming = true;
+            document.querySelector('button').textContent = 'Stop Stream';
+        }
+    }
+
+    window.onload = function() {
+        player = new Player({
+            useWorker: false,
+            webgl: true,  // Enable WebGL for better performance
+            size: {
+                width: 640,
+                height: 480
+            }
+        });
+
+        // let count=0;
+        // // Set up onPictureDecoded callback:
+        // player.decoder.onPictureDecoded = (buffer, width, height, infos) => {
+        //     if (count % 1000 === 0) {
+        //         console.log(width, height);
+        //         //console.log(atob(buffer));
+        //     }
+        //
+        //     count++;
+        //     //console.log('onPictureDecoded!');
+        // };
+        //
+
+
+        // Attach the player to the canvas
+        document.getElementById('canvas').appendChild(player.canvas);
+
+        ws = new WebSocket(getWebSocketURL());
+
+        ws.binaryType = 'arraybuffer'; // Make sure we're receiving binary frames
+
+        ws.onopen = function(event) {
+            console.log('Connected to the WebSocket');
+        };
+
+        ws.onmessage = function(event) {
+            if (event.data instanceof ArrayBuffer) {
+                player.decode(new Uint8Array(event.data));
+            }
+        };
+
+        ws.onclose = function(event) {
+            console.log('WebSocket closed:', event);
+        };
+
+        ws.onerror = function(error) {
+            console.log('WebSocket Error:', error);
+        };
+    };
+</script>
+
+</body>
+</html>

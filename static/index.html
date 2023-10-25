@@ -1,0 +1,81 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Streaming with jmuxer</title>
+    <script src="https://cdn.jsdelivr.net/npm/jmuxer@latest"></script>
+</head>
+<body>
+  <h1>Jmuxer Version</h1>
+  <div style="background-color:gray;display:inline-flex"><video id="video" width="640" height="480"></video></div>
+
+  <div><button onclick="toggleStream()">Start Stream</button></div>
+
+
+<script>
+    let video = document.getElementById('video');
+    let ws;
+    let streaming = false;
+    let jmuxer;
+
+    function getWebSocketURL() {
+        let protocol = (window.location.protocol === 'https:') ? 'wss:' : 'ws:';
+        let host = window.location.hostname;
+        let port = window.location.port;
+
+        return `${protocol}//${host}:${port}/ws`;
+    }
+
+    function toggleStream() {
+        if (streaming) {
+            ws.send('stop');
+            streaming = false;
+            document.querySelector('button').textContent = 'Start Stream';
+        } else {
+            ws.send('stream');
+            streaming = true;
+            document.querySelector('button').textContent = 'Stop Stream';
+        }
+    }
+
+    window.onload = function() {
+        jmuxer = new JMuxer({
+            node: 'video',
+            mode: 'video',
+            flushingTime: 0,
+            clearBuffer: true,
+            maxDelay: 0,
+            debug: false,
+            fps: 30,
+        });
+
+        ws = new WebSocket(getWebSocketURL());
+
+        ws.binaryType = 'arraybuffer'; // Make sure we're receiving binary frames
+
+        ws.onopen = function(event) {
+            console.log('Connected to the WebSocket');
+        };
+
+        ws.onmessage = function(event) {
+            if (event.data instanceof ArrayBuffer) {
+                jmuxer.feed({
+                    video: new Uint8Array(event.data),
+                });
+            }
+        };
+
+        ws.onclose = function(event) {
+            console.log('WebSocket closed:', event);
+        };
+
+        ws.onerror = function(error) {
+            console.log('WebSocket Error:', error);
+        };
+    };
+
+</script>
+
+</body>
+
+</html>
