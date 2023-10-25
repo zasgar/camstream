@@ -18,11 +18,11 @@ import (
 )
 
 var (
-	sps, pps  []byte
-	readyChan = make(chan bool)
-	clients   = make(map[*websocket.Conn]bool) // connected clients
-	mutex     sync.Mutex
-	lossRate  int32
+	sps0, pps0, sps1, pps1 []byte
+	readyChan              = make(chan bool)
+	clients                = make(map[*websocket.Conn]bool) // connected clients
+	mutex                  sync.Mutex
+	lossRate               int32
 )
 
 func init() {
@@ -82,9 +82,13 @@ func startFFmpeg() error {
 
 			switch nalCount {
 			case 0:
-				sps = nal
+				sps0 = nal
 			case 1:
-				pps = nal
+				pps0 = nal
+			case 2:
+				sps1 = nal
+			case 3:
+				pps1 = nal
 				readyChan <- true
 			default:
 				lr := atomic.LoadInt32(&lossRate)
@@ -129,8 +133,10 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 
 		if string(p) == "stream" {
 			// Send stored sps and pps
-			ws.WriteMessage(websocket.BinaryMessage, sps)
-			ws.WriteMessage(websocket.BinaryMessage, pps)
+			ws.WriteMessage(websocket.BinaryMessage, sps0)
+			ws.WriteMessage(websocket.BinaryMessage, pps0)
+			ws.WriteMessage(websocket.BinaryMessage, sps1)
+			ws.WriteMessage(websocket.BinaryMessage, pps1)
 
 			mutex.Lock()
 			clients[ws] = true
